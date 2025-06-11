@@ -6,7 +6,7 @@ import os
 import io
 
 # Streamlit UI
-st.title("🌱 Plant Health Analyzer")
+st.title("🌱 Plant Health AAnalyzer")
 st.write("Upload a plant photo for health diagnosis and care recommendations")
 
 # Get API key directly from Streamlit secrets
