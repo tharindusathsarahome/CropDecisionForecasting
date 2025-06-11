@@ -5,7 +5,7 @@ import io
 
 # --- Streamlit පිටු සැකසුම ---
 st.set_page_config(
-    page_title="AI-Based Plant Disease Analyzer",
+    page_title="AI Based Plant Disease Analyzer",
     page_icon="🌱",
     layout="centered"
 )
