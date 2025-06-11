@@ -40,7 +40,7 @@ SYSTEM_INSTRUCTION = """
 
 # --- ආකෘති සැකසුම ---
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-pro-latest",
+    model_name="gemini-2.5-pro-preview-06-05",
     system_instruction=SYSTEM_INSTRUCTION
 )
 
