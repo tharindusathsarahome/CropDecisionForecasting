@@ -3,48 +3,49 @@ from google import generativeai as genai
 from PIL import Image
 import io
 
-# --- Streamlit Page Configuration ---
+# --- Streamlit පිටු සැකසුම ---
 st.set_page_config(
-    page_title="Plant Health Analyzer",
+    page_title="ශාක සෞඛ්‍ය විශ්ලේෂකය",
     page_icon="🌱",
     layout="centered"
 )
 
-# --- API Configuration ---
-# Get API key directly from Streamlit secrets
+# --- API යතුර සැකසීම ---
+# Streamlit රහස් වලින් API යතුර ලබාගැනීම
 try:
     api_key = st.secrets['GEMINI_API_KEY']
     genai.configure(api_key=api_key)
 except (KeyError, Exception):
-    st.error("GEMINI_API_KEY not found. Please add it to your Streamlit secrets.")
+    st.error("GEMINI_API_KEY සොයාගත නොහැක. කරුණාකර එය ඔබගේ Streamlit රහස් වෙත එක් කරන්න.")
     st.stop()
 
-# --- System Instruction for the AI Model ---
+# --- AI ආකෘතිය සඳහා පද්ධති උපදෙස් (සිංහලෙන්) ---
 SYSTEM_INSTRUCTION = """
-You are an expert botanist and plant pathologist. Your goal is to analyze user-uploaded plant images and answer their questions in a conversational manner.
+ඔබ පිළිතුරු සැපයිය යුත්තේ සිංහල භාෂාවෙන් පමණි.
 
-When the user first sends an image and a question, analyze it carefully using this guide:
-1.  *Identify Visible Plant Parts*: Note leaves, flowers, stems, soil, etc.
-2.  *Identify Plant Species*: Attempt to identify the plant. If unsure, state "Unknown species" but describe its features.
-3.  *Assess Plant Health*: Look for signs of disease, pests, or stress (discoloration, spots, holes, curling, wilting, insects, webs).
-4.  *Formulate Initial Response*: Based on your analysis and the user's specific question, provide a comprehensive report.
-    *   *Direct Answer*: First, directly answer the user's question.
-    *   *Overall Health Status*: (e.g., Healthy, Stressed, Diseased).
-    *   *Symptoms Observed*: Detail the specific signs you've identified.
-    *   *Possible Causes*: Suggest potential reasons (e.g., fungal infection, overwatering, nutrient deficiency).
-    *   *Care & Treatment Suggestions*: Provide clear, actionable steps.
+ඔබ උද්භිද විද්‍යාව සහ ශාක රෝග පිළිබඳ විශේෂඥයෙකි. ඔබගේ කාර්යය වන්නේ පරිශීලකයා විසින් උඩුගත කරන ලද ශාක ඡායාරූප විශ්ලේෂණය කර ඔවුන්ගේ ප්‍රශ්නවලට සිංහල භාෂාවෙන් පිළිතුරු දීමයි.
 
-For all follow-up questions, maintain the context of the original image and conversation. Provide concise, helpful answers. If the image is unclear or lacks detail for a specific question, state that and politely explain what you can and cannot see.
+පරිශීලකයා මුලින්ම ඡායාරූපයක් සහ ප්‍රශ්නයක් එවන විට, මෙම මාර්ගෝපදේශය භාවිතයෙන් එය හොඳින් විශ්ලේෂණය කරන්න:
+1.  **පෙනෙන ශාක කොටස් හඳුනාගන්න**: කොළ, මල්, කඳන්, පස ආදිය සටහන් කරගන්න.
+2.  **ශාක විශේෂය හඳුනාගන්න**: ශාකය හඳුනා ගැනීමට උත්සාහ කරන්න. අවිනිශ්චිත නම්, "හඳුනා නොගත් විශේෂය" ලෙස සඳහන් කර එහි ලක්ෂණ විස්තර කරන්න.
+3.  **ශාක සෞඛ්‍යය තක්සේරු කරන්න**: රෝග, පළිබෝධකයන් හෝ පීඩනකාරී තත්ත්වයන්ගේ ලක්ෂණ සොයන්න (වර්ණය වෙනස්වීම, ලප, සිදුරු, කොළ හැකිලීම, මැලවීම, කෘමීන්, දැල්).
+4.  **මූලික ප්‍රතිචාරය සකසන්න**: ඔබගේ විශ්ලේෂණය සහ පරිශීලකයාගේ ප්‍රශ්නය මත පදනම්ව, සවිස්තරාත්මක වාර්තාවක් සපයන්න.
+    *   **සෘජු පිළිතුර**: පළමුව, පරිශීලකයාගේ ප්‍රශ්නයට කෙලින්ම පිළිතුරු දෙන්න.
+    *   **සමස්ත සෞඛ්‍ය තත්ත්වය**: (උදා: සෞඛ්‍ය සම්පන්න, පීඩනයට ලක්වූ, රෝගී).
+    *   **නිරීක්ෂණය කළ රෝග ලක්ෂණ**: ඔබ හඳුනාගත් නිශ්චිත සලකුණු විස්තර කරන්න.
+    *   **විය හැකි හේතු**: (උදා: දිලීර ආසාදනය, ජලය වැඩිවීම, පෝෂක ඌනතාවය).
+    *   **සත්කාර සහ ප්‍රතිකාර යෝජනා**: පැහැදිලි, ක්‍රියාත්මක කළ හැකි පියවර සපයන්න.
+
+පසුව අසන සියලුම ප්‍රශ්න සඳහා, මුල් ඡායාරූපයේ සහ සංවාදයේ සන්දර්භය පවත්වා ගන්න. සංක්ෂිප්ත, ප්‍රයෝජනවත් පිළිතුරු සපයන්න.
 """
 
-# --- Model Configuration ---
+# --- ආකෘති සැකසුම ---
 model = genai.GenerativeModel(
     model_name="gemini-1.5-pro-latest",
     system_instruction=SYSTEM_INSTRUCTION
 )
 
-# --- Session State Initialization ---
-# This is the core of the chatbot functionality
+# --- සැසි තත්ත්වය (Session State) ආරම්භ කිරීම ---
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = None
 if "messages" not in st.session_state:
@@ -53,62 +54,62 @@ if "image" not in st.session_state:
     st.session_state.image = None
 
 
-# --- UI and Logic ---
-st.title("🌱 Plant Health Analyzer")
-st.write("Upload a plant photo, then ask questions in the chat box below.")
+# --- UI සහ ක්‍රියාවලි ---
+st.title("🌱 ශාක සෞඛ්‍ය විශ්ලේෂකය")
+st.write("ඔබේ ශාකයේ ඡායාරූපයක් උඩුගත කර, පහත ඇති චැට් කොටුවෙන් ප්‍රශ්න අසන්න.")
 
-# --- Sidebar for File Upload and Control ---
+# --- ගොනු උඩුගත කිරීම සහ පාලනය සඳහා පැති තීරුව ---
 with st.sidebar:
-    st.header("Your Plant")
-    uploaded_file = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    st.header("ඔබේ ශාකය")
+    uploaded_file = st.file_uploader("ඡායාරූපයක් උඩුගත කරන්න", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
     
     if uploaded_file:
         st.session_state.image = Image.open(uploaded_file)
-        st.image(st.session_state.image, caption="Your Plant")
+        st.image(st.session_state.image, caption="ඔබේ ශාකය")
 
-    if st.button("New Chat"):
-        # Reset the chat session and messages
+    if st.button("නව සංවාදයක්"):
+        # සැසිය සහ පණිවිඩ නැවත සැකසීම
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.session_state.image = None
-        st.rerun() # Rerun to clear the page
+        st.rerun()
 
-# --- Display Chat History ---
+# --- සංවාද ඉතිහාසය පෙන්වීම ---
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- Chat Input Logic ---
-if prompt := st.chat_input("Ask a question about your plant..."):
-    # 1. Check if an image has been uploaded
+# --- චැට් ආදාන ක්‍රියාවලිය ---
+if prompt := st.chat_input("ඔබේ ශාකය ගැන ප්‍රශ්නයක් අසන්න..."):
+    # 1. ඡායාරූපයක් උඩුගත කර ඇත්දැයි පරීක්ෂා කිරීම
     if st.session_state.image is None:
-        st.warning("Please upload a plant photo in the sidebar first.")
+        st.warning("කරුණාකර පළමුව පැති තීරුවේ ශාකයේ ඡායාරූපයක් උඩුගත කරන්න.")
         st.stop()
 
-    # 2. Add user's message to the display history
+    # 2. පරිශීලකයාගේ පණිවිඩය ඉතිහාසයට එක් කිරීම
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 3. Handle the conversation with the model
-    with st.spinner("Analyzing..."):
+    # 3. ආකෘතිය සමඟ සංවාදය හැසිරවීම
+    with st.spinner("විශ්ලේෂණය කරමින් පවතී..."):
         try:
-            # If it's the first message, start a new chat with the image
+            # පළමු පණිවිඩය නම්, ඡායාරූපය සමඟ නව සංවාදයක් ආරම්භ කිරීම
             if st.session_state.chat_session is None:
                 st.session_state.chat_session = model.start_chat()
-                # Send the image and the first prompt
+                # ඡායාරූපය සහ පළමු ප්‍රශ්නය යැවීම
                 response = st.session_state.chat_session.send_message(
                     [prompt, st.session_state.image],
                     stream=True
                 )
-            # For subsequent messages, just send the prompt
+            # පසු පණිවිඩ සඳහා, ප්‍රශ්නය පමණක් යැවීම
             else:
                 response = st.session_state.chat_session.send_message(
                     prompt,
                     stream=True
                 )
             
-            # 4. Stream the response to the UI
+            # 4. ප්‍රතිචාරය UI වෙත සජීවීව පෙන්වීම
             with st.chat_message("assistant"):
                 full_response = ""
                 placeholder = st.empty()
@@ -117,11 +118,11 @@ if prompt := st.chat_input("Ask a question about your plant..."):
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
             
-            # 5. Add the full response to the message history
+            # 5. සම්පූර්ණ ප්‍රතිචාරය ඉතිහාසයට එක් කිරීම
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"දෝෂයක් ඇතිවිය: {e}")
 
 st.divider()
-st.caption("Disclaimer: This AI analysis is for informational purposes only and is not a substitute for professional botanical or agricultural advice.")
+st.caption("වියාචනය: මෙම AI විශ්ලේෂණය තොරතුරු දැනගැනීමේ අරමුණු සඳහා පමණක් වන අතර, එය වෘත්තීය උද්භිද විද්‍යාත්මක හෝ කෘෂිකාර්මික උපදෙස් සඳහා ආදේශකයක් නොවේ.")
