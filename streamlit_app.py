@@ -11,7 +11,6 @@ st.set_page_config(
 )
 
 # --- API යතුර සැකසීම ---
-# Streamlit රහස් වලින් API යතුර ලබාගැනීම
 try:
     api_key = st.secrets['GEMINI_API_KEY']
     genai.configure(api_key=api_key)
@@ -52,16 +51,24 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "image" not in st.session_state:
     st.session_state.image = None
-
+# uploader එක reset කිරීමට key එකක් එකතු කිරීම
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
 # --- UI සහ ක්‍රියාවලි ---
 st.title("🌱 ශාක සෞඛ්‍ය විශ්ලේෂකය")
-st.write("ඔබේ ශාකයේ ඡායාරූපයක් උඩුගත කර, පහත ඇති චැට් කොටුවෙන් ප්‍රශ්න අසන්න.")
+st.write("ඔබේ ශාකයේ ඡායාරූපයක් පැති තීරුවෙන් උඩුගත කර, පහත චැට් කොටුවෙන් ප්‍රශ්න අසන්න.")
 
 # --- ගොනු උඩුගත කිරීම සහ පාලනය සඳහා පැති තීරුව ---
 with st.sidebar:
     st.header("ඔබේ ශාකය")
-    uploaded_file = st.file_uploader("ඡායාරූපයක් උඩුගත කරන්න", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
+    
+    # uploader සඳහා key එක භාවිතා කිරීම
+    uploaded_file = st.file_uploader(
+        "ඡායාරූපයක් උඩුගත කරන්න", 
+        type=["jpg", "jpeg", "png"], 
+        key=st.session_state.uploader_key
+    )
     
     if uploaded_file:
         st.session_state.image = Image.open(uploaded_file)
@@ -72,6 +79,8 @@ with st.sidebar:
         st.session_state.chat_session = None
         st.session_state.messages = []
         st.session_state.image = None
+        # uploader key එක වෙනස් කර, uploader එක reset කිරීම
+        st.session_state.uploader_key += 1
         st.rerun()
 
 # --- සංවාද ඉතිහාසය පෙන්වීම ---
@@ -81,35 +90,28 @@ for message in st.session_state.messages:
 
 # --- චැට් ආදාන ක්‍රියාවලිය ---
 if prompt := st.chat_input("ඔබේ ශාකය ගැන ප්‍රශ්නයක් අසන්න..."):
-    # 1. ඡායාරූපයක් උඩුගත කර ඇත්දැයි පරීක්ෂා කිරීම
     if st.session_state.image is None:
         st.warning("කරුණාකර පළමුව පැති තීරුවේ ශාකයේ ඡායාරූපයක් උඩුගත කරන්න.")
         st.stop()
 
-    # 2. පරිශීලකයාගේ පණිවිඩය ඉතිහාසයට එක් කිරීම
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 3. ආකෘතිය සමඟ සංවාදය හැසිරවීම
     with st.spinner("විශ්ලේෂණය කරමින් පවතී..."):
         try:
-            # පළමු පණිවිඩය නම්, ඡායාරූපය සමඟ නව සංවාදයක් ආරම්භ කිරීම
             if st.session_state.chat_session is None:
                 st.session_state.chat_session = model.start_chat()
-                # ඡායාරූපය සහ පළමු ප්‍රශ්නය යැවීම
                 response = st.session_state.chat_session.send_message(
                     [prompt, st.session_state.image],
                     stream=True
                 )
-            # පසු පණිවිඩ සඳහා, ප්‍රශ්නය පමණක් යැවීම
             else:
                 response = st.session_state.chat_session.send_message(
                     prompt,
                     stream=True
                 )
             
-            # 4. ප්‍රතිචාරය UI වෙත සජීවීව පෙන්වීම
             with st.chat_message("assistant"):
                 full_response = ""
                 placeholder = st.empty()
@@ -118,7 +120,6 @@ if prompt := st.chat_input("ඔබේ ශාකය ගැන ප්‍රශ්�
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
             
-            # 5. සම්පූර්ණ ප්‍රතිචාරය ඉතිහාසයට එක් කිරීම
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
         except Exception as e:
