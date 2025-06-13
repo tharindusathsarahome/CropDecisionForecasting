@@ -27,9 +27,9 @@ def generate_pdf(text):
     pdf = PDF()
     try:
         # uni=True is important for Unicode fonts
-        pdf.add_font('IskoolaPota', '', 'fonts/IskoolaPota-Regular.ttf', uni=True) 
+        pdf.add_font('IskoolaPota', '', 'font/Iskoola Pota Regular.ttf', uni=True) 
     except RuntimeError:
-        st.error("ෆොන්ට් ගොනුව ('fonts/IskoolaPota-Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
+        st.error("ෆොන්ට් ගොනුව ('font/Iskoola Pota Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
         return None
         
     pdf.set_font('IskoolaPota', '', 12)
