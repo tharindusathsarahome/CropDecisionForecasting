@@ -16,9 +16,7 @@ st.set_page_config(
 # --- PDF Generation Function ---
 class PDF(FPDF):
     def header(self):
-        # Setting font for the header is not needed here as we set it globally
         pass
-
     def footer(self):
         self.set_y(-15)
         self.set_font('IskoolaPota', 'I', 8)
@@ -26,20 +24,15 @@ class PDF(FPDF):
 
 def generate_pdf(text):
     pdf = PDF()
-    # Add the Sinhala font. Ensure the .ttf file is in the 'fonts' directory.
     try:
         pdf.add_font('IskoolaPota', '', 'fonts/IskoolaPota-Regular.ttf', uni=True)
     except RuntimeError:
         st.error("ෆොන්ට් ගොනුව ('fonts/IskoolaPota-Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
         return None
-        
     pdf.set_font('IskoolaPota', '', 12)
     pdf.add_page()
-    # Use multi_cell for automatic line breaking
     pdf.multi_cell(0, 10, text)
-    # Return PDF as bytes
     return pdf.output(dest='S').encode('latin-1')
-
 
 # --- API යතුර සැකසීම ---
 try:
@@ -50,40 +43,16 @@ except (KeyError, Exception):
     st.stop()
 
 # --- AI ආකෘති සඳහා පද්ධති උපදෙස් ---
-# All instructions are updated to enforce Sinhala-only responses
-IDENTIFICATION_INSTRUCTION = """
-ඔබේ එකම කාර්යය වන්නේ ලබා දී ඇති ඡායාරූපයේ ඇති ශාකයේ නම සිංහලෙන් හඳුනා ගැනීමයි. 
-පිළිතුර ලෙස ශාකයේ නම පමණක් ලබා දෙන්න. උදාහරණයක් ලෙස: 'රෝස' හෝ 'තක්කාලි'. හඳුනාගත නොහැකි නම්, "හඳුනාගත නොහැක" ලෙස පමණක් සඳහන් කරන්න.
-"""
+IDENTIFICATION_INSTRUCTION = "ඔබේ එකම කාර්යය වන්නේ ලබා දී ඇති ඡායාරූපයේ ඇති ශාකයේ නම සිංහලෙන් හඳුනා ගැනීමයි. පිළිතුර ලෙස ශාකයේ නම පමණක් ලබා දෙන්න. උදාහරණයක් ලෙස: 'රෝස' හෝ 'තක්කාලි'. හඳුනාගත නොහැකි නම්, 'හඳුනාගත නොහැක' ලෙස පමණක් සඳහන් කරන්න."
+PRELIMINARY_ANALYSIS_INSTRUCTION = "ඔබ ශාක රෝග පිළිබඳ විශේෂඥයෙකි. ඔබගේ සියලුම පිළිතුරු සිංහල භාෂාවෙන් පමණක් ලබා දෙන්න. ලබා දී ඇති ඡායාරූපය සහ ශාකයේ නම මත පදනම්ව, රෝගය නිවැරදිව හඳුනාගැනීමට උපකාරී වන සරල ප්‍රශ්න 2-3ක් සිංහලෙන් අසන්න. මෙම ප්‍රශ්න කාලගුණය, හිරු එළිය, සහ ජලය දැමීම වැනි දේ ගැන විය යුතුය. ප්‍රතිචාරය පහත ආකෘතියට අනුව පමණක් ලබා දෙන්න:\n[ANALYSIS]: <ඔබ හඳුනාගත් රෝග ලක්ෂණ පිළිබඳ කෙටි සාරාංශයක්>\n[QUESTIONS]: <ප්‍රශ්නය 1> | <ප්‍රශ්නය 2>"
+FINAL_ANALYSIS_INSTRUCTION = "ඔබ පිළිතුරු සැපයිය යුත්තේ සිංහල භාෂාවෙන් පමණි. ඔබ උද්භිද විද්‍යාව සහ ශාක රෝග පිළිබඳ විශේෂඥයෙකි. පරිශීලකයා ඉංග්‍රීසියෙන් ඇසුවද ඔබේ පිළිතුරු සිංහලෙන් විය යුතුය. ඔබට දැන් මූලික රෝග ලක්ෂණ විශ්ලේෂණයක් සහ පරිශීලකයා විසින් සපයන ලද පාරිසරික තොරතුරු ලැබී ඇත. මෙම සියලු තොරතුරු භාවිතා කර, පහත සඳහන් දෑ ඇතුළත් සවිස්තරාත්මක සහ අවසාන වාර්තාවක් සපයන්න:\n1.  **නිශ්චිත රෝග විනිශ්චය:** විය හැකි රෝගයේ නම.\n2.  **හේතු:** පරිශීලකයාගේ පිළිතුරු ද සැලකිල්ලට ගනිමින් හේතු පැහැදිලි කරන්න.\n3.  **විසඳුම් සහ පාලනය:** ක්ෂණික පියවර, කාබනික ප්‍රතිකාර, රසායනික ප්‍රතිකාර, සහ වැළැක්වීමේ ක්‍රම ලෙස කොටස් කර ඉදිරිපත් කරන්න."
+FOLLOW_UP_INSTRUCTION = "ඔබ ශාක රෝග පිළිබඳ විශේෂඥ සහායකයෙකි. ඔබ සහ පරිශීලකයා අතර සම්පූර්ණ සංවාදයක් මේ වන විට සිදුවී ඇත. සංවාදයේ සන්දර්භය (ශාකයේ නම, රෝග ලක්ෂණ, ඔබගේ පෙර විශ්ලේෂණය) මත පදනම්ව පරිශීලකයාගේ වැඩිදුර ප්‍රශ්නවලට පිළිතුරු දෙන්න. ඔබේ සියලුම පිළිතුරු සිංහල භාෂාවෙන් පමණක් ලබා දෙන්න, පරිශීලකයා ඉංග්‍රීසියෙන් ප්‍රශ්න ඇසුවද. පිළිතුරු කෙටි සහ අදාළ ලෙස තබා ගන්න."
 
-PRELIMINARY_ANALYSIS_INSTRUCTION = """
-ඔබ ශාක රෝග පිළිබඳ විශේෂඥයෙකි. ඔබගේ සියලුම පිළිතුරු සිංහල භාෂාවෙන් පමණක් ලබා දෙන්න.
-ලබා දී ඇති ඡායාරූපය සහ ශාකයේ නම මත පදනම්ව, රෝගය නිවැරදිව හඳුනාගැනීමට උපකාරී වන සරල ප්‍රශ්න 2-3ක් සිංහලෙන් අසන්න. මෙම ප්‍රශ්න කාලගුණය, හිරු එළිය, සහ ජලය දැමීම වැනි දේ ගැන විය යුතුය.
-ප්‍රතිචාරය පහත ආකෘතියට අනුව පමණක් ලබා දෙන්න:
-[ANALYSIS]: <ඔබ හඳුනාගත් රෝග ලක්ෂණ පිළිබඳ කෙටි සාරාංශයක්>
-[QUESTIONS]: <ප්‍රශ්නය 1> | <ප්‍රශ්නය 2>
-"""
-
-FINAL_ANALYSIS_INSTRUCTION = """
-ඔබ පිළිතුරු සැපයිය යුත්තේ සිංහල භාෂාවෙන් පමණි. ඔබ උද්භිද විද්‍යාව සහ ශාක රෝග පිළිබඳ විශේෂඥයෙකි. පරිශීලකයා ඉංග්‍රීසියෙන් ඇසුවද ඔබේ පිළිතුරු සිංහලෙන් විය යුතුය.
-ඔබට දැන් මූලික රෝග ලක්ෂණ විශ්ලේෂණයක් සහ පරිශීලකයා විසින් සපයන ලද පාරිසරික තොරතුරු ලැබී ඇත.
-මෙම සියලු තොරතුරු භාවිතා කර, පහත සඳහන් දෑ ඇතුළත් සවිස්තරාත්මක සහ අවසාන වාර්තාවක් සපයන්න:
-1.  **නිශ්චිත රෝග විනිශ්චය:** විය හැකි රෝගයේ නම.
-2.  **හේතු:** පරිශීලකයාගේ පිළිතුරු ද සැලකිල්ලට ගනිමින් හේතු පැහැදිලි කරන්න.
-3.  **විසඳුම් සහ පාලනය:** ක්ෂණික පියවර, කාබනික ප්‍රතිකාර, රසායනික ප්‍රතිකාර, සහ වැළැක්වීමේ ක්‍රම ලෙස කොටස් කර ඉදිරිපත් කරන්න.
-"""
-
-FOLLOW_UP_INSTRUCTION = """
-ඔබ ශාක රෝග පිළිබඳ විශේෂඥ සහායකයෙකි. ඔබ සහ පරිශීලකයා අතර සම්පූර්ණ සංවාදයක් මේ වන විට සිදුවී ඇත.
-සංවාදයේ සන්දර්භය (ශාකයේ නම, රෝග ලක්ෂණ, ඔබගේ පෙර විශ්ලේෂණය) මත පදනම්ව පරිශීලකයාගේ වැඩිදුර ප්‍රශ්නවලට පිළිතුරු දෙන්න.
-ඔබේ සියලුම පිළිතුරු සිංහල භාෂාවෙන් පමණක් ලබා දෙන්න, පරිශීලකයා ඉංග්‍රීසියෙන් ප්‍රශ්න ඇසුවද. පිළිතුරු කෙටි සහ අදාළ ලෙස තබා ගන්න.
-"""
-
-
-# --- ආකෘති සැකසුම ---
+# --- ආකෘති සැකසුම (නිවැරදි කරන ලදී) ---
 identification_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", system_instruction=IDENTIFICATION_INSTRUCTION)
 preliminary_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=PRELIMINARY_ANALYSIS_INSTRUCTION)
-final_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest") # System instruction will be set dynamically
+final_report_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=FINAL_ANALYSIS_INSTRUCTION)
+follow_up_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=FOLLOW_UP_INSTRUCTION)
 
 # --- Session State ආරම්භ කිරීම ---
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -95,9 +64,7 @@ if "processed_file_id" not in st.session_state: st.session_state.processed_file_
 if "uploader_key" not in st.session_state: st.session_state.uploader_key = 0
 if "image_bytes" not in st.session_state: st.session_state.image_bytes = None
 
-
 def reset_session():
-    """Clears the session state for a new conversation."""
     uploader_key = st.session_state.get('uploader_key', 0)
     st.session_state.clear()
     st.session_state.uploader_key = uploader_key + 1
@@ -110,38 +77,24 @@ st.write("ඔබේ ශාකයේ රෝගී තත්ත්වයක් ඇ
 
 with st.sidebar:
     st.header("ඔබේ ශාකය")
-    uploaded_file = st.file_uploader(
-        "ඡායාරූපයක් උඩුගත කරන්න", 
-        type=["jpg", "jpeg", "png"], 
-        key=f"uploader_{st.session_state.uploader_key}"
-    )
+    uploaded_file = st.file_uploader("ඡායාරූපයක් උඩුගත කරන්න", type=["jpg", "jpeg", "png"], key=f"uploader_{st.session_state.uploader_key}")
     if st.button("🔄 නව සංවාදයක්"):
         reset_session()
 
-# --- ස්වයංක්‍රීයව ශාකය හඳුනාගැනීමේ ක්‍රියාවලිය ---
+# --- හඳුනාගැනීමේ ක්‍රියාවලිය ---
 if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id:
-    # Reset relevant parts of the session for the new image
     st.session_state.messages = []
     st.session_state.final_report_content = ""
     st.session_state.processed_file_id = uploaded_file.file_id
-    
-    # Store image bytes to reuse later
     img_bytes = uploaded_file.getvalue()
     st.session_state.image_bytes = img_bytes
     image = Image.open(io.BytesIO(img_bytes))
-    
     with st.spinner("ශාකය හඳුනාගනිමින් පවතී..."):
         try:
             response = identification_model.generate_content(image)
             plant_name = response.text.strip()
-            
             unrecognized_keywords = ["හඳුනාගත", "නොහැක", "අපහසුයි", "පැහැදිලි නැත"]
-            is_unrecognized = (
-                not plant_name or
-                any(keyword in plant_name for keyword in unrecognized_keywords) or
-                len(plant_name.split()) > 3 
-            )
-            
+            is_unrecognized = (not plant_name or any(keyword in plant_name for keyword in unrecognized_keywords) or len(plant_name.split()) > 3)
             if is_unrecognized:
                 st.error("සමාවන්න, මෙම ඡායාරූපයෙන් ශාකය පැහැදිලිව හඳුනාගත නොහැක. කරුණාකර වඩාත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න.")
                 time.sleep(3)
@@ -155,30 +108,21 @@ if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id
             st.error(f"ශාකය හඳුනාගැනීමේදී දෝෂයක් ඇතිවිය: {e}")
             time.sleep(3); reset_session()
 
-# --- සංවාද ඉතිහාසය සහ චැට් ආදානය ---
+# --- සංවාද ඉතිහාසය සහ UI ---
 if st.session_state.processed_file_id:
     with st.sidebar:
         st.image(st.session_state.image_bytes, caption="ඔබේ ශාකය")
 
-# Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Display PDF download button if a report has been generated
 if st.session_state.final_report_content:
     pdf_bytes = generate_pdf(st.session_state.final_report_content)
     if pdf_bytes:
-        st.download_button(
-            label="📄 වාර්තාව PDF ලෙස බාගන්න",
-            data=pdf_bytes,
-            file_name=f"{st.session_state.plant_name}_analysis_report.pdf",
-            mime="application/pdf"
-        )
-
+        st.download_button(label="📄 වාර්තාව PDF ලෙස බාගන්න", data=pdf_bytes, file_name=f"{st.session_state.plant_name}_analysis_report.pdf", mime="application/pdf")
 
 def handle_streaming_response(response_stream):
-    """Function to handle streaming response and display it."""
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_response = ""
@@ -189,7 +133,7 @@ def handle_streaming_response(response_stream):
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     return full_response
 
-
+# --- චැට් ආදානය සහ ක්‍රියාවලි ---
 if prompt := st.chat_input("ඔබේ පිළිතුර/ප්‍රශ්නය මෙහි ඇතුළත් කරන්න..."):
     if not st.session_state.processed_file_id:
         st.warning("කරුණාකර පළමුව ඡායාරූපයක් උඩුගත කරන්න."); st.stop()
@@ -197,11 +141,9 @@ if prompt := st.chat_input("ඔබේ පිළිතුර/ප්‍රශ්�
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
 
-    # State Machine for Conversation Flow
     stage = st.session_state.conversation_stage
     image = Image.open(io.BytesIO(st.session_state.image_bytes))
 
-    # Stage 1: Confirming the plant name
     if stage == "awaiting_confirmation":
         if any(word in prompt.lower() for word in ["ඔව්", "ඔවු", "ow", "yes"]):
             with st.spinner("මූලික විශ්ලේෂණය කරමින්..."):
@@ -209,7 +151,6 @@ if prompt := st.chat_input("ඔබේ පිළිතුර/ප්‍රශ්�
                     response = preliminary_model.generate_content([f"මෙය {st.session_state.plant_name} ශාකයකි.", image])
                     analysis_match = re.search(r"\[ANALYSIS\]: (.*?)\n\[QUESTIONS\]:", response.text, re.DOTALL)
                     questions_match = re.search(r"\[QUESTIONS\]: (.*)", response.text, re.DOTALL)
-
                     if analysis_match and questions_match:
                         st.session_state.initial_analysis = analysis_match.group(1).strip()
                         questions = questions_match.group(1).strip().replace(" | ", "\n- ")
@@ -218,15 +159,12 @@ if prompt := st.chat_input("ඔබේ පිළිතුර/ප්‍රශ්�
                         st.session_state.messages.append({"role": "assistant", "content": follow_up_message})
                         st.session_state.conversation_stage = "awaiting_environmental_info"
                         st.rerun()
-                    else:
-                        st.error("විශ්ලේෂණය කිරීමේදී දෝෂයක් ඇතිවිය (ආකෘතියේ ප්‍රතිචාරය නොගැලපේ). කරුණාකර නැවත උත්සාහ කරන්න.")
-                except Exception as e:
-                    st.error(f"මූලික විශ්ලේෂණයේදී දෝෂයක්: {e}")
+                    else: st.error("විශ්ලේෂණය කිරීමේදී දෝෂයක් ඇතිවිය (ආකෘතියේ ප්‍රතිචාරය නොගැලපේ).")
+                except Exception as e: st.error(f"මූලික විශ්ලේෂණයේදී දෝෂයක්: {e}")
         else:
             st.session_state.messages.append({"role": "assistant", "content": "තේරුම් ගත්තා. කරුණාකර වෙනත් ඡායාරූපයක් උඩුගත කරන්න."})
             time.sleep(3); reset_session()
 
-    # Stage 2: Getting environmental info and generating the final report
     elif stage == "awaiting_environmental_info":
         with st.spinner("ඔබගේ පිළිතුරු අනුව අවසන් වාර්තාව සකසමින්..."):
             try:
@@ -235,15 +173,12 @@ if prompt := st.chat_input("ඔබේ පිළිතුර/ප්‍රශ්�
                                 f"පරිශීලකයාගේ පිළිතුරු: {prompt}\n\n"
                                 "ඉහත සියලු තොරතුරු සහ ඡායාරූපය මත පදනම්ව සවිස්තරාත්මක, අවසන් වාර්තාව සපයන්න.")
                 
-                # Use the model with the final analysis instruction
-                final_model._system_instruction = FINAL_ANALYSIS_INSTRUCTION
-                response_stream = final_model.generate_content([final_prompt, image], stream=True)
+                # නිවැරදි, වෙන් කරන ලද ආකෘතිය භාවිතා කිරීම
+                response_stream = final_report_model.generate_content([final_prompt, image], stream=True)
                 
-                # Stream the response and get the full text
                 full_response = handle_streaming_response(response_stream)
                 st.session_state.final_report_content = full_response
                 
-                # Add a message to prompt for follow-up questions
                 follow_up_prompt_msg = "විශ්ලේෂණය අවසන්. ඔබට මේ සම්බන්ධයෙන් තවත් ප්‍රශ්න ඇත්නම් දැන් විමසන්න."
                 st.session_state.messages.append({"role": "assistant", "content": follow_up_prompt_msg})
                 
@@ -252,32 +187,19 @@ if prompt := st.chat_input("ඔබේ පිළිතුර/ප්‍රශ්�
             except Exception as e:
                 st.error(f"අවසාන විශ්ලේෂණයේදී දෝෂයක්: {e}")
 
-    # Stage 3: Post-analysis follow-up chat
     elif stage == "follow_up_chat":
         with st.spinner("පිළිතුර සකසමින්..."):
             try:
-                # Prepare the context from the entire chat history
-                chat_history = []
-                for msg in st.session_state.messages:
-                    # Map roles to what the model expects
-                    role = "user" if msg["role"] == "user" else "model"
-                    chat_history.append({"role": role, "parts": [msg["content"]]})
-                
-                # Remove the last user message from history as it's the new prompt
+                chat_history = [{"role": "user" if msg["role"] == "user" else "model", "parts": [msg["content"]]} for msg in st.session_state.messages]
                 chat_history.pop()
 
-                # Start a chat session with history
-                final_model._system_instruction = FOLLOW_UP_INSTRUCTION
-                chat = final_model.start_chat(history=chat_history)
-                
-                # Send the new prompt and stream the response
+                # නිවැරදි, වෙන් කරන ලද ආකෘතිය භාවිතා කිරීම
+                chat = follow_up_model.start_chat(history=chat_history)
                 response_stream = chat.send_message(prompt, stream=True)
                 handle_streaming_response(response_stream)
                 st.rerun()
-
             except Exception as e:
                 st.error(f"පිළිතුර සැකසීමේදී දෝෂයක් ඇතිවිය: {e}")
-
 
 st.divider()
 st.caption("⚠️ මෙම AI විශ්ලේෂණය වෘත්තීය කෘෂිකාර්මික උපදෙස් සඳහා ආදේශකයක් වේ.")
