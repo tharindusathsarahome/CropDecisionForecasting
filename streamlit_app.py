@@ -36,9 +36,9 @@ def generate_pdf(text):
     pdf.add_page()
     pdf.multi_cell(0, 10, text)
     
-    # pdf.output(dest='S') returns a string, which must be encoded into bytes.
-    # 'latin-1' is the standard encoding for this purpose with fpdf.
-    return pdf.output(dest='S').encode('latin-1')
+    # Directly return the PDF as a bytes object.
+    # This is the modern and correct way for fpdf2.
+    return pdf.output()
 
 # --- API යතුර සැකසීම ---
 try:
