@@ -23,19 +23,15 @@ except (KeyError, Exception):
 # --- AI ආකෘති සඳහා පද්ධති උපදෙස් ---
 IDENTIFICATION_INSTRUCTION = """
 ඔබේ එකම කාර්යය වන්නේ ලබා දී ඇති ඡායාරූපයේ ඇති ශාකයේ නම සිංහලෙන් හඳුනා ගැනීමයි. 
-පිළිතුර ලෙස ශාකයේ නම පමණක් ලබා දෙන්න. වෙනත් කිසිවක් ඇතුළත් නොකරන්න.
-උදාහරණයක් ලෙස: 'රෝස' හෝ 'තක්කාලි'. හඳුනාගත නොහැකි නම්, "හඳුනාගත නොහැක" ලෙස පමණක් සඳහන් කරන්න.
+පිළිතුර ලෙස ශාකයේ නම පමණක් ලබා දෙන්න. උදාහරණයක් ලෙස: 'රෝස' හෝ 'තක්කාලි'. හඳුනාගත නොහැකි නම්, "හඳුනාගත නොහැක" ලෙස පමණක් සඳහන් කරන්න.
 """
 
 PRELIMINARY_ANALYSIS_INSTRUCTION = """
 ඔබ ශාක රෝග පිළිබඳ විශේෂඥයෙකි. ඔබගේ කාර්යය සිංහල භාෂාවෙන් පමණක් කළ යුතුය.
-ලබා දී ඇති ඡායාරූපය සහ ශාකයේ නම මත පදනම්ව:
-1.  ප්‍රධාන වශයෙන් පෙනෙන රෝග ලක්ෂණ හඳුනාගන්න (උදා: කොළවල සුදු පුස්, කහ පැල්ලම්).
-2.  එම රෝග ලක්ෂණවලට අදාළව, රෝගය නිවැරදිව හඳුනාගැනීමට උපකාරී වන සරල ප්‍රශ්න 2-3ක් සිංහලෙන් අසන්න. මෙම ප්‍රශ්න කාලගුණය, හිරු එළිය, සහ ජලය දැමීම වැනි දේ ගැන විය යුතුය.
-
+ලබා දී ඇති ඡායාරූපය සහ ශාකයේ නම මත පදනම්ව, රෝගය නිවැරදිව හඳුනාගැනීමට උපකාරී වන සරල ප්‍රශ්න 2-3ක් සිංහලෙන් අසන්න. මෙම ප්‍රශ්න කාලගුණය, හිරු එළිය, සහ ජලය දැමීම වැනි දේ ගැන විය යුතුය.
 ප්‍රතිචාරය පහත ආකෘතියට අනුව *පමණක්* ලබා දෙන්න:
 [ANALYSIS]: <ඔබ හඳුනාගත් රෝග ලක්ෂණ පිළිබඳ කෙටි සාරාංශයක්>
-[QUESTIONS]: <ප්‍රශ්නය 1> | <ප්‍රශ්නය 2> | <ප්‍රශ්නය 3>
+[QUESTIONS]: <ප්‍රශ්නය 1> | <ප්‍රශ්නය 2>
 """
 
 FINAL_ANALYSIS_INSTRUCTION = """
@@ -53,6 +49,7 @@ preliminary_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", sy
 final_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=FINAL_ANALYSIS_INSTRUCTION)
 
 # --- සැසි තත්ත්වය (Session State) ආරම්භ කිරීම ---
+# Using .get() is safer if a key might not exist yet
 if "messages" not in st.session_state: st.session_state.messages = []
 if "awaiting_confirmation" not in st.session_state: st.session_state.awaiting_confirmation = False
 if "awaiting_environmental_info" not in st.session_state: st.session_state.awaiting_environmental_info = False
@@ -62,10 +59,10 @@ if "processed_file_id" not in st.session_state: st.session_state.processed_file_
 if "uploader_key" not in st.session_state: st.session_state.uploader_key = 0
 
 def reset_session():
-    # Keep uploader_key, but reset everything else
-    key = st.session_state.uploader_key
+    """Clears the entire session state and prepares for a new upload."""
+    uploader_key = st.session_state.get('uploader_key', 0)
     st.session_state.clear()
-    st.session_state.uploader_key = key + 1
+    st.session_state.uploader_key = uploader_key + 1
     st.rerun()
 
 # --- UI සහ ක්‍රියාවලි ---
@@ -79,7 +76,7 @@ with st.sidebar:
         reset_session()
 
 # --- ස්වයංක්‍රීයව ශාකය හඳුනාගැනීමේ ක්‍රියාවලිය ---
-if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id:
+if uploaded_file and uploaded_file.file_id != st.session_state.get('processed_file_id'):
     st.session_state.messages = []
     st.session_state.processed_file_id = uploaded_file.file_id
     image = Image.open(uploaded_file)
@@ -88,16 +85,18 @@ if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id
             response = identification_model.generate_content(image)
             plant_name = response.text.strip()
             
-            unrecognized_keywords = ["හඳුනාගත", "හඳුනාගැනීමට", "නොහැක", "අපහසුයි", "පැහැදිලි නැත"]
-            is_unrecognized = (not plant_name or any(keyword in plant_name for keyword in unrecognized_keywords) or len(plant_name.split()) > 3)
+            unrecognized_keywords = ["හඳුනාගත", "නොහැක", "අපහසුයි", "පැහැදිලි නැත"]
+            is_unrecognized = (
+                not plant_name or
+                any(keyword in plant_name for keyword in unrecognized_keywords) or
+                len(plant_name.split()) > 3 
+            )
             
             if is_unrecognized:
-                # ස්ථාවර, සරල පණිවිඩයක් එක් කිරීම
-                failure_message = "සමාවන්න, මෙම ඡායාරූපයෙන් ශාකය පැහැදිලිව හඳුනාගත නොහැක. කරුණාකර වඩාත් පැහැදිලි හෝ වෙනත් කෝණයකින් ගත් ඡායාරූපයක් උඩුගත කරන්න."
-                st.session_state.messages.append({"role": "assistant", "content": failure_message})
-                # නැවත upload කිරීමට ඉඩ දීම සඳහා processed_file_id ඉවත් කිරීම
-                st.session_state.processed_file_id = None 
-                st.rerun()
+                # ශාකය හඳුනාගත නොහැකි නම්, ස්ථාවර දෝෂ පණිවිඩයක් පෙන්වා නැවත සකසන්න
+                st.error("සමාවන්න, මෙම ඡායාරූපයෙන් ශාකය පැහැදිලිව හඳුනාගත නොහැක. කරුණාකර වඩාත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න.")
+                time.sleep(3) # පරිශීලකයාට පණිවිඩය කියවීමට කාලය ලබා දීම
+                reset_session()
             else:
                 st.session_state.plant_name = plant_name
                 st.session_state.awaiting_confirmation = True
@@ -108,7 +107,7 @@ if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id
             time.sleep(3); reset_session()
 
 # --- සංවාද ඉතිහාසය සහ චැට් ආදානය ---
-if st.session_state.processed_file_id and uploaded_file:
+if st.session_state.get('processed_file_id') and uploaded_file:
     with st.sidebar:
         st.image(uploaded_file, caption="ඔබේ ශාකය")
 
@@ -117,7 +116,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇතුළත් කරන්න..."):
-    if not st.session_state.processed_file_id:
+    if not st.session_state.get('processed_file_id'):
         st.warning("කරුණාකර පළමුව ඡායාරූපයක් උඩුගත කරන්න."); st.stop()
 
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -165,13 +164,12 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
                     full_response = "".join([chunk.text for chunk in response])
                     placeholder.markdown(full_response)
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.rerun() # To show the final message
             except Exception as e:
                 st.error(f"අවසාන විශ්ලේෂණයේදී දෝෂයක්: {e}")
     else:
-        # සාමාන්‍ය පසු විපරම් සංවාදය සඳහා placeholder
-        # දැනටමත් සංවාදයක් අවසන් වී ඇත්නම්, නව එකක් ආරම්භ කිරීමට දන්වන්න
-        if st.session_state.messages:
-             st.info("විශ්ලේෂණය අවසන්. නව ශාකයක් සඳහා, 'නව සංවාදයක්' බොත්තම ඔබන්න.")
+        if st.session_state.messages and len(st.session_state.messages) > 1: # Check if a conversation has happened
+             st.info("විශ්ලේෂණය අවසන්. නව ශාකයක් සඳහා, 'නව සංවාදයක්' බොත්තම ඔබා නැවත උත්සාහ කරන්න.", icon="💡")
 
 st.divider()
 st.caption("⚠️ මෙම AI විශ්ලේෂණය වෘත්තීය කෘෂිකාර්මික උපදෙස් සඳහා ආදේශකයක් වේ.")
