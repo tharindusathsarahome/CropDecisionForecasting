@@ -23,22 +23,7 @@ class PDF(FPDF):
         self.set_font('IskoolaPota', '', 8) 
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
-def generate_pdf(text):
-    pdf = PDF()
-    try:
-        # uni=True is important for Unicode fonts
-        pdf.add_font('IskoolaPota', '', 'font/Iskoola Pota Regular.ttf', uni=True) 
-    except FileNotFoundError:
-        st.error("ෆොන්ට් ගොනුව ('font/Iskoola Pota Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
-        return None
-        
-    pdf.set_font('IskoolaPota', '', 12)
-    pdf.add_page()
-    pdf.multi_cell(0, 10, text)
-    
-    # Directly return the PDF as a bytes object.
-    # This is the modern and correct way for fpdf2.
-    return pdf.output()
+
 
 # --- API යතුර සැකසීම ---
 try:
