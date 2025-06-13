@@ -22,7 +22,7 @@ except (KeyError, Exception):
 
 # --- AI ආකෘති සඳහා පද්ධති උපදෙස් ---
 IDENTIFICATION_INSTRUCTION = """
-ඔබේ එකම කාර්යය වන්නේ ලබා දී ඇති ඡායාරූපයේ ඇති ශාකයේ නම සිංහලෙන් හඳුනා ගැනීමයි. 
+ඔබේ එකම කාර්යය වන්නේ ලබා දී ඇති ඡායාරූපයේ ඇති ශාකයේ නම සිංහලෙන් හඳුනා ගැනීමයි.
 පිළිතුර ලෙස ශාකයේ නම පමණක් ලබා දෙන්න. උදාහරණයක් ලෙස: 'රෝස' හෝ 'තක්කාලි'. හඳුනාගත නොහැකි නම්, "හඳුනාගත නොහැක" ලෙස පමණක් සඳහන් කරන්න.
 """
 
@@ -43,7 +43,6 @@ FINAL_ANALYSIS_INSTRUCTION = """
 3.  **විසඳුම් සහ පාලනය:** ක්ෂණික පියවර, කාබනික ප්‍රතිකාර, රසායනික ප්‍රතිකාර, සහ වැළැක්වීමේ ක්‍රම ලෙස කොටස් කර ඉදිරිපත් කරන්න.
 """
 
-# >>>>>>>> නව උපදෙස <<<<<<<<<
 FOLLOW_UP_INSTRUCTION = """
 ඔබ ශාක රෝග පිළිබඳ උපකාරශීලී විශේෂඥ සහායකයෙකි. ඔබ සිංහල භාෂාවෙන් පිළිතුරු දිය යුතුය.
 පරිශීලකයාට දැනටමත් තම ශාකයේ ගැටලුව පිළිබඳ සවිස්තරාත්මක විශ්ලේෂණයක් ලැබී ඇත. ඔවුන් දැන් ඒ සම්බන්ධයෙන් තවත් ප්‍රශ්න අසමින් සිටී.
@@ -54,7 +53,6 @@ FOLLOW_UP_INSTRUCTION = """
 identification_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", system_instruction=IDENTIFICATION_INSTRUCTION)
 preliminary_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=PRELIMINARY_ANALYSIS_INSTRUCTION)
 final_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=FINAL_ANALYSIS_INSTRUCTION)
-# >>>>>>>> නව ආකෘතිය <<<<<<<<<
 follow_up_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=FOLLOW_UP_INSTRUCTION)
 
 
@@ -86,7 +84,7 @@ with st.sidebar:
 
 # --- ස්වයංක්‍රීයව ශාකය හඳුනාගැනීමේ ක්‍රියාවලිය ---
 if uploaded_file and uploaded_file.file_id != st.session_state.get('processed_file_id'):
-    st.session_state.messages = []
+    reset_session() # Reset everything for a new image
     st.session_state.processed_file_id = uploaded_file.file_id
     image = Image.open(uploaded_file)
     with st.spinner("ශාකය හඳුනාගනිමින් පවතී..."):
@@ -103,8 +101,7 @@ if uploaded_file and uploaded_file.file_id != st.session_state.get('processed_fi
             
             if is_unrecognized:
                 st.error("සමාවන්න, මෙම ඡායාරූපයෙන් ශාකය පැහැදිලිව හඳුනාගත නොහැක. කරුණාකර වඩාත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න.")
-                time.sleep(3)
-                reset_session()
+                time.sleep(3); reset_session()
             else:
                 st.session_state.plant_name = plant_name
                 st.session_state.awaiting_confirmation = True
@@ -130,7 +127,7 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
 
-    # 1. ශාකයේ නම තහවුරු කිරීමේ අදියර
+    # අදියර 1: ශාකයේ නම තහවුරු කිරීම
     if st.session_state.awaiting_confirmation:
         st.session_state.awaiting_confirmation = False
         if any(word in prompt.lower() for word in ["ඔව්", "ඔවු", "ow", "yes"]):
@@ -157,18 +154,9 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
             st.session_state.messages.append({"role": "assistant", "content": "තේරුම් ගත්තා. කරුණාකර වෙනත් ඡායාරූපයක් උඩුගත කරන්න."})
             time.sleep(3); reset_session()
 
-    # 2. අවසන් විශ්ලේෂණය ලබා දීමේ අදියර
+    # අදියර 2: අවසන් විශ්ලේෂණ වාර්තාව ලබා දීම
     elif st.session_state.awaiting_environmental_info:
         st.session_state.awaiting_environmental_info = False
-        
-        def stream_final_response(prompt, image):
-            try:
-                response_stream = final_model.generate_content([prompt, image], stream=True)
-                for chunk in response_stream:
-                    yield chunk.text
-            except Exception as e:
-                yield f"\n\n**දෝෂයකි:** අවසන් විශ්ලේෂණය ලබා ගැනීමේදී ගැටලුවක් ඇති විය. {e}"
-
         with st.chat_message("assistant"):
             image = Image.open(uploaded_file)
             final_prompt = (f"ශාකය: {st.session_state.plant_name}.\n"
@@ -176,36 +164,35 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
                             f"පරිශීලකයාගේ පිළිතුරු: {prompt}\n\n"
                             "ඉහත සියලු තොරතුරු සහ ඡායාරූපය මත පදනම්ව සවිස්තරාත්මක, අවසන් වාර්තාව සපයන්න.")
             
-            full_response = st.write_stream(stream_final_response(final_prompt, image))
+            response_stream = final_model.generate_content([final_prompt, image], stream=True)
+            full_response = st.write_stream(response_stream)
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-    # >>>>>>>> වෙනස් කළ කොටස <<<<<<<<<
-    # 3. විශ්ලේෂණයෙන් පසු තවත් ප්‍රශ්න ඇසීමේ අදියර
+    # >>>>>>>> නිවැරදි කළ කොටස: අඛණ්ඩ සංවාදය <<<<<<<<<
+    # අදියර 3: විශ්ලේෂණයෙන් පසු තවත් ඕනෑම ප්‍රශ්නයකට පිළිතුරු දීම
     else:
-        if st.session_state.get('processed_file_id'):
-            with st.spinner("පිළිතුර සකසමින්..."):
-                try:
-                    # ආකෘතියට සන්දර්භය ලබා දීම සඳහා සංවාද ඉතිහාසය සකස් කිරීම
-                    history_for_model = []
-                    for msg in st.session_state.messages[:-1]: # වත්මන් ප්‍රශ්නය හැර අනිත් සියල්ල
-                        role = "model" if msg["role"] == "assistant" else "user"
-                        history_for_model.append({"role": role, "parts": [msg["content"]]})
-                    
-                    # Streaming සඳහා generator ශ්‍රිතය
-                    def stream_follow_up(prompt, image, history):
-                        chat = follow_up_model.start_chat(history=history)
-                        response_stream = chat.send_message([prompt, image], stream=True)
-                        for chunk in response_stream:
-                            yield chunk.text
+        with st.spinner("පිළිතුර සකසමින්..."):
+            try:
+                # සන්දර්භය සඳහා සම්පූර්ණ සංවාද ඉතිහාසය ලබා දීම
+                history_for_model = []
+                for msg in st.session_state.messages[:-1]: # වත්මන් ප්‍රශ්නය හැර
+                    role = "model" if msg["role"] == "assistant" else "user"
+                    history_for_model.append({"role": role, "parts": [msg["content"]]})
 
-                    image = Image.open(uploaded_file)
-                    with st.chat_message("assistant"):
-                        full_response = st.write_stream(stream_follow_up(prompt, image, history_for_model))
-                        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                image = Image.open(uploaded_file)
+                chat = follow_up_model.start_chat(history=history_for_model)
                 
-                except Exception as e:
-                    st.error(f"පිළිතුරු දීමේදී දෝෂයක්: {e}")
+                # Streaming සමඟ පිළිතුර යැවීම
+                response_stream = chat.send_message([prompt, image], stream=True)
+                
+                with st.chat_message("assistant"):
+                    full_response = st.write_stream(response_stream)
+                
+                # සංවාද ඉතිහාසයට නව පිළිතුර එක් කිරීම
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
 
+            except Exception as e:
+                st.error(f"පිළිතුරු දීමේදී දෝෂයක්: {e}")
 
 st.divider()
 st.caption("⚠️ මෙම AI විශ්ලේෂණය වෘත්තීය කෘෂිකාර්මික උපදෙස් සඳහා ආදේශකයක් වේ.")
