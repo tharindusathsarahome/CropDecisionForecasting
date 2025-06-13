@@ -26,14 +26,19 @@ class PDF(FPDF):
 def generate_pdf(text):
     pdf = PDF()
     try:
-        pdf.add_font('IskoolaPota', '', 'Fonts/IskoolaPota-Regular.ttf', uni=True)
+        # uni=True is important for Unicode fonts
+        pdf.add_font('IskoolaPota', '', 'fonts/IskoolaPota-Regular.ttf', uni=True) 
     except RuntimeError:
         st.error("ෆොන්ට් ගොනුව ('fonts/IskoolaPota-Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
         return None
+        
     pdf.set_font('IskoolaPota', '', 12)
     pdf.add_page()
     pdf.multi_cell(0, 10, text)
-    return pdf.output(dest='S').encode('latin-1')
+    
+    # .encode('latin-1') කොටස ඉවත් කරන්න.
+    # pdf.output(dest='S') මගින් කෙලින්ම bytes ලබා දේ.
+    return pdf.output(dest='S')
 
 # --- API යතුර සැකසීම ---
 try:
