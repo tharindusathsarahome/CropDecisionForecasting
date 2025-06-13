@@ -49,7 +49,6 @@ preliminary_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", sy
 final_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", system_instruction=FINAL_ANALYSIS_INSTRUCTION)
 
 # --- සැසි තත්ත්වය (Session State) ආරම්භ කිරීම ---
-# Using .get() is safer if a key might not exist yet
 if "messages" not in st.session_state: st.session_state.messages = []
 if "awaiting_confirmation" not in st.session_state: st.session_state.awaiting_confirmation = False
 if "awaiting_environmental_info" not in st.session_state: st.session_state.awaiting_environmental_info = False
@@ -93,9 +92,8 @@ if uploaded_file and uploaded_file.file_id != st.session_state.get('processed_fi
             )
             
             if is_unrecognized:
-                # ශාකය හඳුනාගත නොහැකි නම්, ස්ථාවර දෝෂ පණිවිඩයක් පෙන්වා නැවත සකසන්න
                 st.error("සමාවන්න, මෙම ඡායාරූපයෙන් ශාකය පැහැදිලිව හඳුනාගත නොහැක. කරුණාකර වඩාත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න.")
-                time.sleep(3) # පරිශීලකයාට පණිවිඩය කියවීමට කාලය ලබා දීම
+                time.sleep(3)
                 reset_session()
             else:
                 st.session_state.plant_name = plant_name
@@ -148,6 +146,7 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
             st.session_state.messages.append({"role": "assistant", "content": "තේරුම් ගත්තා. කරුණාකර වෙනත් ඡායාරූපයක් උඩුගත කරන්න."})
             time.sleep(3); reset_session()
 
+    # vvvvvvvvvvvv --- STREAMING සඳහා වෙනස් කළ කොටස --- vvvvvvvvvvvv
     elif st.session_state.awaiting_environmental_info:
         st.session_state.awaiting_environmental_info = False
         with st.spinner("ඔබගේ පිළිතුරු අනුව අවසන් වාර්තාව සකසමින්..."):
@@ -158,18 +157,29 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
                                 f"පරිශීලකයාගේ පිළිතුරු: {prompt}\n\n"
                                 "ඉහත සියලු තොරතුරු සහ ඡායාරූපය මත පදනම්ව සවිස්තරාත්මක, අවසන් වාර්තාව සපයන්න.")
                 
-                response = final_model.generate_content([final_prompt, image], stream=True)
+                # `stream=True` සමඟ ආකෘතිය call කිරීම
+                response_stream = final_model.generate_content([final_prompt, image], stream=True)
+                
                 with st.chat_message("assistant"):
+                    # පිළිතුර පෙන්වීම සඳහා හිස් placeholder එකක් තැනීම
                     placeholder = st.empty()
-                    full_response = "".join([chunk.text for chunk in response])
-                    placeholder.markdown(full_response)
+                    # ලැබෙන කොටස් එකතු කිරීමට හිස් string එකක් සකස් කිරීම
+                    full_response = ""
+                    # stream එක හරහා ගොස් placeholder එක යාවත්කාලීන කිරීම
+                    for chunk in response_stream:
+                        full_response += chunk.text
+                        placeholder.markdown(full_response)
+                        
+                # streaming අවසන් වූ පසු, සම්පූර්ණ පිළිතුර session state වෙත එක් කිරීම
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
-                st.rerun() # To show the final message
+                # තාවකාලික placeholder ඉවත් කර, chat ඉතිහාසයෙන් ස්ථිරව පෙන්වීමට rerun කිරීම
+                st.rerun() 
             except Exception as e:
                 st.error(f"අවසාන විශ්ලේෂණයේදී දෝෂයක්: {e}")
+    # ^^^^^^^^^^^^ --- STREAMING සඳහා වෙනස් කළ කොටස --- ^^^^^^^^^^^^
     else:
-        if st.session_state.messages and len(st.session_state.messages) > 1: # Check if a conversation has happened
+        if st.session_state.messages and len(st.session_state.messages) > 1:
              st.info("විශ්ලේෂණය අවසන්. නව ශාකයක් සඳහා, 'නව සංවාදයක්' බොත්තම ඔබා නැවත උත්සාහ කරන්න.", icon="💡")
 
 st.divider()
-st.caption("⚠️ මෙම AI විශ්ලේෂණය වෘත්තීය කෘෂිකාර්මික උපදෙස් සඳහා ආදේශකයක් වේ.")
+st.caption("⚠️ මෙම AI විශ්ලේෂණය වෘත්තීය කෘෂිකාර්මික උපදෙස් සඳහා ආදේශකයක් නොවේ.")
