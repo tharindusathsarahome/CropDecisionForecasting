@@ -19,7 +19,8 @@ class PDF(FPDF):
         pass
     def footer(self):
         self.set_y(-15)
-        self.set_font('IskoolaPota', 'I', 8)
+    # Italic ('I') වෙනුවට Regular ('') භාවිතා කරන්න
+        self.set_font('IskoolaPota', '', 8) 
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
 def generate_pdf(text):
