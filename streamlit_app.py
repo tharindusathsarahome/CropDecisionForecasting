@@ -25,7 +25,7 @@ except (KeyError, Exception):
 IDENTIFICATION_INSTRUCTION = """
 ඔබේ එකම කාර්යය වන්නේ ලබා දී ඇති ඡායාරූපයේ ඇති ශාකයේ නම සිංහලෙන් හඳුනා ගැනීමයි. 
 පිළිතුර ලෙස ශාකයේ නම පමණක් ලබා දෙන්න. වෙනත් කිසිවක් ඇතුළත් නොකරන්න.
-උදාහරණයක් ලෙස: 'රෝස' හෝ 'අඹ'.
+උදාහරණයක් ලෙස: 'රෝස' හෝ 'තක්කාලි'.
 """
 
 # 2. සවිස්තරාත්මක විශ්ලේෂණය සඳහා වන උපදෙස
@@ -62,14 +62,13 @@ if "chat_session" not in st.session_state:
     st.session_state.chat_session = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "image" not in st.session_state:
-    st.session_state.image = None
-if "uploader_key" not in st.session_state:
-    st.session_state.uploader_key = 0
 if "awaiting_confirmation" not in st.session_state:
     st.session_state.awaiting_confirmation = False
 if "plant_name" not in st.session_state:
     st.session_state.plant_name = ""
+# අලුතින් උඩුගත කළ ගොනුවක් හඳුනාගැනීම සඳහා නව state එකක්
+if "processed_file_id" not in st.session_state:
+    st.session_state.processed_file_id = None
 
 # --- ක්‍රියාකාරීත්වයන් (Functions) ---
 
@@ -77,40 +76,15 @@ def reset_session():
     """සම්පූර්ණ සැසිය නැවත සකසයි"""
     st.session_state.chat_session = None
     st.session_state.messages = []
-    st.session_state.image = None
     st.session_state.awaiting_confirmation = False
     st.session_state.plant_name = ""
+    st.session_state.processed_file_id = None
+    # uploader එක reset කිරීම සඳහා key එකක් භාවිතා කිරීම අනවශ්‍යයි,
+    # නමුත් එය තබාගැනීමෙන් පැහැදිලිව uploader එක clear කළ හැකිය.
+    if 'uploader_key' not in st.session_state:
+        st.session_state.uploader_key = 0
     st.session_state.uploader_key += 1
     st.rerun()
-
-def handle_image_upload():
-    """ඡායාරූපය උඩුගත කළ විට මෙම ශ්‍රිතය ස්වයංක්‍රීයව ක්‍රියාත්මක වේ."""
-    # file_uploader widget එකෙන් උඩුගත කළ ගොනුව ලබාගැනීම
-    uploaded_file = st.session_state[f"uploader_{st.session_state.uploader_key}"]
-    if uploaded_file:
-        # නව ඡායාරූපයක් සඳහා පැරණි දත්ත ඉවත් කිරීම
-        st.session_state.messages = []
-        st.session_state.chat_session = None
-        
-        image = Image.open(uploaded_file)
-        st.session_state.image = image
-
-        # ශාකය හඳුනාගැනීම සඳහා AI වෙත ඉල්ලීම යැවීම
-        with st.spinner("ශාකය හඳුනාගනිමින් පවතී..."):
-            try:
-                response = identification_model.generate_content(["මෙම ශාකය කුමක්ද?", image])
-                plant_name = response.text.strip()
-                st.session_state.plant_name = plant_name
-
-                # පරිශීලකයාගෙන් තහවුරු කිරීම ඉල්ලීම සඳහා ප්‍රශ්නයක් සකස් කිරීම
-                confirmation_question = f"මෙය '{plant_name}' ශාකයක්ද? (ඔව් / නැත)"
-                # එම ප්‍රශ්නය සංවාද ඉතිහාසයට එක් කිරීම
-                st.session_state.messages.append({"role": "assistant", "content": confirmation_question})
-                # යෙදුම දැන් පරිශීලකයාගේ පිළිතුර බලාපොරොත්තුවෙන් සිටින බව සටහන් කිරීම
-                st.session_state.awaiting_confirmation = True
-            except Exception as e:
-                st.error(f"ශාකය හඳුනාගැනීමේදී දෝෂයක් ඇතිවිය: {e}")
-                reset_session()
 
 # --- UI සහ ක්‍රියාවලි ---
 st.title("🌱 Plant Disease Analyzer")
@@ -120,29 +94,58 @@ st.write("ඔබේ ශාකයේ ඡායාරූපයක් පැති 
 with st.sidebar:
     st.header("ඔබේ ශාකය")
     
-    # ඡායාරූපය උඩුගත කළ විගස handle_image_upload ශ්‍රිතය ක්‍රියාත්මක වේ.
-    st.file_uploader(
+    # on_change ඉවත් කර ඇත.
+    uploaded_file = st.file_uploader(
         "ඡායාරූපයක් උඩුගත කරන්න", 
         type=["jpg", "jpeg", "png"],
-        key=f"uploader_{st.session_state.uploader_key}",
-        on_change=handle_image_upload 
+        key=f"uploader_{st.session_state.get('uploader_key', 0)}"
     )
     
-    if st.session_state.image:
-        st.image(st.session_state.image, caption="ඔබේ ශාකය")
-
     if st.button("නව සංවාදයක්"):
         reset_session()
 
+# --- ස්වයංක්‍රීයව ශාකය හඳුනාගැනීමේ ක්‍රියාවලිය ---
+# ඡායාරූපයක් උඩුගත කර ඇත්නම් සහ එය පෙර විශ්ලේෂණය කළ එකම ඡායාරූපය නොවේ නම්...
+if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id:
+    # නව සැසියක් සඳහා පැරණි දත්ත ඉවත් කිරීම
+    st.session_state.messages = []
+    st.session_state.chat_session = None
+    st.session_state.awaiting_confirmation = True
+    st.session_state.processed_file_id = uploaded_file.file_id
+
+    image = Image.open(uploaded_file)
+
+    with st.spinner("ශාකය හඳුනාගනිමින් පවතී..."):
+        try:
+            response = identification_model.generate_content(["මෙම ශාකය කුමක්ද?", image])
+            plant_name = response.text.strip()
+            st.session_state.plant_name = plant_name
+            
+            confirmation_question = f"මෙය '{plant_name}' ශාකයක්ද? (ඔව් / නැත)"
+            st.session_state.messages.append({"role": "assistant", "content": confirmation_question})
+            
+            # වෙනස්කම් පෙන්වීම සඳහා පිටුව නැවත ක්‍රියාත්මක කිරීම
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"ශාකය හඳුනාගැනීමේදී දෝෂයක් ඇතිවිය: {e}")
+            reset_session()
+
+
 # --- සංවාද ඉතිහාසය පෙන්වීම ---
 # යෙදුම නැවත ක්‍රියාත්මක වන විට, AI ඇසූ ප්‍රශ්නය මෙහිදී දර්ශනය වේ.
+if uploaded_file:
+    with st.sidebar:
+        st.image(uploaded_file, caption="ඔබේ ශාකය")
+
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+
 # --- චැට් ආදාන ක්‍රියාවලිය ---
 if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇතුළත් කරන්න..."):
-    if st.session_state.image is None:
+    if not st.session_state.processed_file_id:
         st.warning("කරුණාකර පළමුව පැති තීරුවේ ශාකයේ ඡායාරූපයක් උඩුගත කරන්න.")
         st.stop()
 
@@ -152,16 +155,20 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
 
     # 1. ශාක නාමය තහවුරු කිරීමේ අදියර
     if st.session_state.awaiting_confirmation:
-        st.session_state.awaiting_confirmation = False # පිළිතුර ලැබුණු නිසා, නැවත තහවුරු කිරීමක් අවශ්‍ය නැත.
+        st.session_state.awaiting_confirmation = False
         
         if any(word in prompt.lower() for word in ["ඔව්", "ඔවු", "ow", "yes"]):
             with st.spinner("විශ්ලේෂණය කරමින් පවතී..."):
                 try:
                     analysis_prompt = f"මෙම '{st.session_state.plant_name}' ශාකයේ සෞඛ්‍ය තත්ත්වය විශ්ලේෂණය කර, ගැටලු ඇත්නම් ඒවාට විසඳුම් ලබා දෙන්න."
                     
+                    # විශ්ලේෂණය සඳහා රූපය නැවත ලබා ගැනීම
+                    # uploaded_file එක තවමත් පවතින නිසා, එයින් image object එක නැවත සෑදිය හැකියි
+                    image_for_analysis = Image.open(uploaded_file)
+
                     st.session_state.chat_session = analysis_model.start_chat(history=[])
                     response = st.session_state.chat_session.send_message(
-                        [analysis_prompt, st.session_state.image],
+                        [analysis_prompt, image_for_analysis],
                         stream=True
                     )
                     
@@ -177,8 +184,8 @@ if prompt := st.chat_input("ඔබේ පිළිතුර මෙහි ඇත�
 
                 except Exception as e:
                     st.error(f"විශ්ලේෂණයේදී දෝෂයක් ඇතිවිය: {e}")
-        else: # "නැත" හෝ වෙනත් පිළිතුරක් දුන් විට
-            rejection_message = "තේරුම් ගත්තා. කරුණාකර වෙනත්, වඩාත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න. මෙම සංවාදය නැවත ආරම්භ වේ."
+        else:
+            rejection_message = "තේරුම් ගත්තා. කරුණාකර වෙනත්, වඩාත් පැහැදිලි ඡායාරූපයක් උඩුගත කරන්න. මෙම සංවාදය ස්වයංක්‍රීයව නැවත ආරම්භ වේ."
             st.session_state.messages.append({"role": "assistant", "content": rejection_message})
             with st.chat_message("assistant"):
                 st.markdown(rejection_message)
