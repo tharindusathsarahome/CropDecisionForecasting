@@ -25,7 +25,7 @@ class PDF(FPDF):
 def generate_pdf(text):
     pdf = PDF()
     try:
-        pdf.add_font('IskoolaPota', '', 'fonts/IskoolaPota-Regular.ttf', uni=True)
+        pdf.add_font('IskoolaPota', '', 'Fonts/IskoolaPota-Regular.ttf', uni=True)
     except RuntimeError:
         st.error("ෆොන්ට් ගොනුව ('fonts/IskoolaPota-Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
         return None
