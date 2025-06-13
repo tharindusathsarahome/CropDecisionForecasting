@@ -115,18 +115,32 @@ if uploaded_file and uploaded_file.file_id != st.session_state.processed_file_id
             time.sleep(3); reset_session()
 
 # --- සංවාද ඉතිහාසය සහ UI ---
+# --- සංවාද ඉතිහාසය සහ UI ---
 if st.session_state.processed_file_id:
     with st.sidebar:
         st.image(st.session_state.image_bytes, caption="ඔබේ ශාකය")
 
+# Display chat messages first
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# --- PDF බාගත කිරීමේ කොටස ---
+# Now, handle the PDF generation and download button
 if st.session_state.final_report_content:
+    # generate_pdf ශ්‍රිතය ඇමතීම
     pdf_bytes = generate_pdf(st.session_state.final_report_content)
+    
+    # pdf_bytes වලංගු අගයක් ද යන්න පරීක්ෂා කිරීම
+    # None නොවේ නම් පමණක් download button එක පෙන්වන්න
     if pdf_bytes:
-        st.download_button(label="📄 වාර්තාව PDF ලෙස බාගන්න", data=pdf_bytes, file_name=f"{st.session_state.plant_name}_analysis_report.pdf", mime="application/pdf")
+        st.download_button(
+            label="📄 වාර්තාව PDF ලෙස බාගන්න",
+            data=pdf_bytes,
+            file_name=f"{st.session_state.plant_name}_analysis_report.pdf",
+            mime="application/pdf"
+        )
+# The rest of your code follows...
 
 def handle_streaming_response(response_stream):
     with st.chat_message("assistant"):
