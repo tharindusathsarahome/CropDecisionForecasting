@@ -28,18 +28,17 @@ def generate_pdf(text):
     try:
         # uni=True is important for Unicode fonts
         pdf.add_font('IskoolaPota', '', 'font/Iskoola Pota Regular.ttf', uni=True) 
-    # Corrected the exception type from RuntimeError to FileNotFoundError
-    except FileNotFoundError: 
-        st.error("Font file ('font/Iskoola Pota Regular.ttf') not found. Please ensure it is correctly placed in the 'font' directory.")
+    except FileNotFoundError:
+        st.error("ෆොන්ට් ගොනුව ('font/Iskoola Pota Regular.ttf') සොයාගත නොහැක. කරුණාකර එය නිවැරදිව ස්ථානගත කරන්න.")
         return None
         
     pdf.set_font('IskoolaPota', '', 12)
     pdf.add_page()
     pdf.multi_cell(0, 10, text)
     
-    # .encode('latin-1') part is correctly removed.
-    # pdf.output(dest='S') directly returns bytes.
-    return pdf.output(dest='S')
+    # pdf.output(dest='S') returns a string, which must be encoded into bytes.
+    # 'latin-1' is the standard encoding for this purpose with fpdf.
+    return pdf.output(dest='S').encode('latin-1')
 
 # --- API යතුර සැකසීම ---
 try:
